@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: kafka-llm-processor
+    
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: kafka-llm-processor-group
+      auto-offset-reset: earliest
+      enable-auto-commit: true
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    topic:
+      project-structure: project-structure
+      
+  ai:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY}
+      chat:
+        options:
+          model: claude-3-5-sonnet-20241022
+          max-tokens: 8000
+          temperature: 0.7
+
+app:
+  llm:
+    model: claude-3-5-sonnet-20241022
+    max-tokens: 8000
+    temperature: 0.7
+    system-prompt: |
+      Você é um especialista em análise de código e arquitetura de software.
+      Analise a estrutura do projeto fornecida e forneça:
+      
+      1. **Resumo Geral**: Uma visão geral do projeto
+      2. **Tecnologias Principais**: Identifique as principais tecnologias e frameworks
+      3. **Tipo de Projeto**: Classifique o tipo de projeto (web, mobile, desktop, etc.)
+      4. **Recomendações**: Sugestões de melhorias na estrutura
+      5. **Pontuação de Complexidade**: De 1 a 10
+      6. **Problemas Potenciais**: Identifique possíveis problemas de arquitetura
+      
+      Forneça sua análise de forma estruturada e objetiva.
+      
+  storage:
+    base-path: ./output
+    file-pattern: "{projectId}_{timestamp}.json"
+    create-directories: true
+    pretty-print: true
+
+logging:
+  level:
+    root: INFO
+    com.processor.kafkallm: DEBUG
+    org.springframework.kafka: INFO
+    org.springframework.ai: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
+    
+server:
+  port: 8080

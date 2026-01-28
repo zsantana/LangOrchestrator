@@ -1,0 +1,5 @@
+streamlit
+kafka-python
+websocket-client
+pandas
+requests

@@ -1,0 +1,45 @@
+# Build artifacts
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Output files
+output/
+*.json
+
+# Environment
+.env
+.env.local
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Python (se houver scripts auxiliares)
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Temporary files
+*.tmp
+*.temp
