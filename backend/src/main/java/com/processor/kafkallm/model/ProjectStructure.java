@@ -30,6 +30,11 @@ public class ProjectStructure {
     @JsonProperty("root_path")
     private String rootPath;
 
+    @JsonProperty("is_spring_boot_maven")
+    private Boolean isSpringBootMaven;
+
+    private String warning;
+
     private List<FileInfo> files;
 
     private List<DirectoryInfo> directories;
@@ -49,6 +54,8 @@ public class ProjectStructure {
         private Long size;
         private String extension;
         private String modified;
+        private String type;
+        private String content;
     }
 
     @Data
@@ -77,5 +84,14 @@ public class ProjectStructure {
 
         @JsonProperty("total_size")
         private Long totalSize;
+
+        @JsonProperty("java_files")
+        private Integer javaFiles;
+
+        @JsonProperty("config_files")
+        private Integer configFiles;
+
+        @JsonProperty("maven_files")
+        private Integer mavenFiles;
     }
 }

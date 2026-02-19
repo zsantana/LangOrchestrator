@@ -80,6 +80,66 @@ public class StorageService {
     }
 
     /**
+     * Salva o resultado do processamento em arquivo Markdown.
+     */
+    public String saveMarkdownResult(ProcessingResult result) throws IOException {
+        log.info("Salvando resultado Markdown para projeto: {}", result.getProjectId());
+
+        Path baseDir = Paths.get(appConfig.getStorage().getBasePath());
+        if (appConfig.getStorage().isCreateDirectories()) {
+            Files.createDirectories(baseDir);
+        }
+
+        String fileName = generateMarkdownFileName(result);
+        Path filePath = baseDir.resolve(fileName);
+
+        String content = result.getAnalysis() != null ? result.getAnalysis() : "";
+        Files.writeString(
+            filePath,
+            content,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        );
+
+        result.setFilePath(filePath.toString());
+        fileCache.put(result.getFileId(), filePath.toString());
+
+        log.info("Resultado Markdown salvo com sucesso: {}", filePath);
+
+        return filePath.toString();
+    }
+
+    /**
+     * Salva o resultado do processamento em arquivo HTML.
+     */
+    public String saveHtmlResult(ProcessingResult result) throws IOException {
+        log.info("Salvando resultado HTML para projeto: {}", result.getProjectId());
+
+        Path baseDir = Paths.get(appConfig.getStorage().getBasePath());
+        if (appConfig.getStorage().isCreateDirectories()) {
+            Files.createDirectories(baseDir);
+        }
+
+        String fileName = generateHtmlFileName(result);
+        Path filePath = baseDir.resolve(fileName);
+
+        String content = result.getAnalysis() != null ? result.getAnalysis() : "";
+        Files.writeString(
+            filePath,
+            content,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        );
+
+        result.setFilePath(filePath.toString());
+        fileCache.put(result.getFileId(), filePath.toString());
+
+        log.info("Resultado HTML salvo com sucesso: {}", filePath);
+
+        return filePath.toString();
+    }
+
+    /**
      * Recupera o caminho do arquivo pelo fileId.
      */
     public Optional<Path> getFilePath(String fileId) {
@@ -107,6 +167,60 @@ public class StorageService {
                 
         } catch (IOException e) {
             log.error("Erro ao buscar arquivo: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Recupera o caminho do arquivo Markdown pelo fileId.
+     */
+    public Optional<Path> getMarkdownFilePath(String fileId) {
+        Optional<Path> cached = getFilePath(fileId);
+        if (cached.isPresent() && cached.get().toString().endsWith(".md")) {
+            return cached;
+        }
+
+        try {
+            Path baseDir = Paths.get(appConfig.getStorage().getBasePath());
+            if (!Files.exists(baseDir)) {
+                return Optional.empty();
+            }
+
+            return Files.walk(baseDir)
+                .filter(Files::isRegularFile)
+                .filter(p -> p.getFileName().toString().contains(fileId))
+                .filter(p -> p.getFileName().toString().endsWith(".md"))
+                .findFirst();
+
+        } catch (IOException e) {
+            log.error("Erro ao buscar arquivo Markdown: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Recupera o caminho do arquivo HTML pelo fileId.
+     */
+    public Optional<Path> getHtmlFilePath(String fileId) {
+        Optional<Path> cached = getFilePath(fileId);
+        if (cached.isPresent() && cached.get().toString().endsWith(".html")) {
+            return cached;
+        }
+
+        try {
+            Path baseDir = Paths.get(appConfig.getStorage().getBasePath());
+            if (!Files.exists(baseDir)) {
+                return Optional.empty();
+            }
+
+            return Files.walk(baseDir)
+                .filter(Files::isRegularFile)
+                .filter(p -> p.getFileName().toString().contains(fileId))
+                .filter(p -> p.getFileName().toString().endsWith(".html"))
+                .findFirst();
+
+        } catch (IOException e) {
+            log.error("Erro ao buscar arquivo HTML: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -153,5 +267,39 @@ public class StorageService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
         String timestamp = result.getProcessedAt().format(formatter);
         return String.format("%s_%s.json", result.getFileId(), timestamp);
+    }
+
+    private String generateMarkdownFileName(ProcessingResult result) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+        String timestamp = result.getProcessedAt().format(formatter);
+        return String.format("%s_%s.md", result.getFileId(), timestamp);
+    }
+
+    private String generateHtmlFileName(ProcessingResult result) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+        String timestamp = result.getProcessedAt().format(formatter);
+        return String.format("%s_%s.html", result.getFileId(), timestamp);
+    }
+
+    /**
+     * Salva qualquer objeto em JSON no caminho informado.
+     */
+    public void saveJson(Path filePath, Object data) throws IOException {
+        if (appConfig.getStorage().isCreateDirectories()) {
+            Path parent = filePath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+        }
+
+        String jsonContent = objectMapper.writerWithDefaultPrettyPrinter()
+            .writeValueAsString(data);
+
+        Files.writeString(
+            filePath,
+            jsonContent,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        );
     }
 }

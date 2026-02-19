@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
-import org.springframework.ai.anthropic.api.AnthropicApi;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -35,29 +34,55 @@ public class LlmProcessingService {
      * Processa a estrutura do projeto usando o LLM.
      */
     public ProcessingResult processWithLlm(String projectStructure) {
-        // log.info("Iniciando processamento LLM para projeto: {}", projectStructure.getProjectId());
-        
+        return processWithLlmPrompt(projectStructure, null);
+    }
+
+    /**
+     * Processa a estrutura do projeto usando o LLM.
+     */
+    public ProcessingResult processWithLlm(ProjectStructure projectStructure) {
+        String userPrompt;
+        try {
+            userPrompt = objectMapper.writeValueAsString(projectStructure);
+        } catch (Exception e) {
+            userPrompt = "Estrutura do projeto: "
+                + (projectStructure != null ? projectStructure.getProjectName() : "desconhecido");
+        }
+        return processWithLlmPrompt(userPrompt, projectStructure);
+    }
+
+    private ProcessingResult processWithLlmPrompt(String userPrompt, ProjectStructure projectStructure) {
         long startTime = System.currentTimeMillis();
+        Long promptTokens = null;
+        Long generationTokens = null;
+        Long totalTokens = null;
         
         try {
-            // Preparar o prompt com a estrutura do projeto
-            String userPrompt = projectStructure; //buildUserPrompt(projectStructure);
-            
             // Criar mensagens
+
+            log.info("### System prompt carregado: {}", appConfig.getLlm().getSystemPrompt());
             List<Message> messages = List.of(
                 new SystemMessage(appConfig.getLlm().getSystemPrompt()),
                 new UserMessage(userPrompt)
             );
             
+            log.info("### Executando chamada para LLM com modelo: {}, temperatura: {}, maxTokens: {}",
+                appConfig.getLlm().getModel(),
+                appConfig.getLlm().getTemperature(),
+                appConfig.getLlm().getMaxTokens());
+
             ChatResponse response = chatModel.call(
                                     new Prompt(
                                         messages,
-                                        AnthropicChatOptions.builder()
-                                            .model("claude-3-7-sonnet-latest")
-                                            .temperature(0.4)
-                                        .build()
+                                        AnthropicChatOptions
+                                            .builder()
+                                            .model(appConfig.getLlm().getModel())
+                                            .temperature(appConfig.getLlm().getTemperature())
+                                            .build()
                                     ));
             
+            
+
             // Logar consumo de tokens
             if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
                 var usage = response.getMetadata().getUsage();
@@ -65,6 +90,9 @@ public class LlmProcessingService {
                     usage.getPromptTokens(),
                     usage.getGenerationTokens(),
                     usage.getTotalTokens());
+                promptTokens = usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null;
+                generationTokens = usage.getGenerationTokens() != null ? usage.getGenerationTokens().longValue() : null;
+                totalTokens = usage.getTotalTokens() != null ? usage.getTotalTokens().longValue() : null;
             }
             
             // Extrair resposta
@@ -73,31 +101,45 @@ public class LlmProcessingService {
             long processingTime = System.currentTimeMillis() - startTime;
             
             log.info("Processamento LLM concluído em {}ms", processingTime);
+
+            String projectId = projectStructure != null ? projectStructure.getProjectId() : null;
+            String projectName = projectStructure != null ? projectStructure.getProjectName() : null;
+            String fileId = generateFileId(projectId != null ? projectId : "project");
             
             // Construir resultado
             return ProcessingResult.builder()
-                // .projectId(projectStructure.getProjectId())
-                // .projectName(projectStructure.getProjectName())
-                // .fileId(generateFileId(projectStructure.getProjectId()))
+                .projectId(projectId)
+                .projectName(projectName)
+                .fileId(fileId)
                 .analysis(analysis)
                 .processedAt(LocalDateTime.now())
                 .status("COMPLETED")
                 .processingTimeMs(processingTime)
+                .promptTokens(promptTokens)
+                .generationTokens(generationTokens)
+                .totalTokens(totalTokens)
                 .build();
             
         } catch (Exception e) {
             log.error("Erro ao processar com LLM: {}", e.getMessage(), e);
             
             long processingTime = System.currentTimeMillis() - startTime;
+
+            String projectId = projectStructure != null ? projectStructure.getProjectId() : null;
+            String projectName = projectStructure != null ? projectStructure.getProjectName() : null;
+            String fileId = generateFileId(projectId != null ? projectId : "project");
             
             return ProcessingResult.builder()
-                // .projectId(projectStructure.getProjectId())
-                // .projectName(projectStructure.getProjectName())
-                // .fileId(generateFileId(projectStructure.getProjectId()))
+                .projectId(projectId)
+                .projectName(projectName)
+                .fileId(fileId)
                 .analysis("Erro no processamento: " + e.getMessage())
                 .processedAt(LocalDateTime.now())
                 .status("ERROR")
                 .processingTimeMs(processingTime)
+                .promptTokens(promptTokens)
+                .generationTokens(generationTokens)
+                .totalTokens(totalTokens)
                 .build();
         }
     }

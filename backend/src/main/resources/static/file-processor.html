@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processador de Arquivos ZIP</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-base: #0f1a24;
+            --bg-surface: #121f2a;
+            --bg-card: #182633;
+            --bg-card-strong: #1d2e3c;
+            --text-primary: #e7eef5;
+            --text-muted: #9fb0bf;
+            --accent: #ffb347;
+            --accent-strong: #ff8f1f;
+            --accent-cool: #2ec4b6;
+            --danger: #ff6b6b;
+            --success: #3ccf7e;
+            --warning: #f2c94c;
+            --line: rgba(255, 255, 255, 0.08);
+            --shadow: 0 20px 60px rgba(8, 15, 22, 0.45);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            display: flex;
+            height: 100vh;
+            color: var(--text-primary);
+            background: radial-gradient(circle at top left, #1b2d3c 0%, #0f1a24 45%, #0b141d 100%);
+            overflow-x: hidden;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(180deg, #1a2a38 0%, #101c26 100%);
+            color: var(--text-primary);
+            padding: 32px 22px;
+            box-shadow: 12px 0 40px rgba(4, 10, 16, 0.5);
+            border-right: 1px solid var(--line);
+            position: relative;
+            overflow-x: hidden;
+            overflow-y: auto;
+            min-width: 260px;
+            max-width: 480px;
+        }
+
+        .sidebar-resizer {
+            position: absolute;
+            top: 0;
+            right: -6px;
+            width: 12px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 10;
+        }
+
+        .sidebar-resizer::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            bottom: 20px;
+            left: 5px;
+            width: 2px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.15);
+            transition: background 0.2s;
+        }
+
+        .sidebar-resizer:hover::before,
+        .sidebar-resizer.is-resizing::before {
+            background: rgba(255, 179, 71, 0.7);
+        }
+
+        .sidebar-hidden .sidebar {
+            width: 0;
+            min-width: 0;
+            max-width: 0;
+            padding: 0;
+            border-right: none;
+            box-shadow: none;
+            overflow: hidden;
+        }
+
+        .sidebar-hidden .sidebar > * {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .sidebar-hidden .sidebar-resizer {
+            display: none;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 25px;
+            font-size: 22px;
+            letter-spacing: 0.4px;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 12px;
+        }
+
+        .upload-area {
+            background: var(--bg-card);
+            border: 2px dashed rgba(255, 179, 71, 0.7);
+            border-radius: 14px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+        }
+
+        .upload-area:hover {
+            background: var(--bg-card-strong);
+            border-color: var(--accent-strong);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            background: var(--bg-card-strong);
+            border-color: var(--accent-strong);
+            transform: scale(1.02);
+            box-shadow: 0 12px 30px rgba(255, 143, 31, 0.2);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn-upload {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+            color: #1b1b1b;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 12px 20px rgba(255, 143, 31, 0.25);
+        }
+
+        .btn-upload:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 26px rgba(255, 143, 31, 0.32);
+        }
+
+        .btn-upload:disabled {
+            background: #384652;
+            color: #94a3af;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .file-info {
+            background: var(--bg-card-strong);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-size: 13px;
+            color: var(--text-muted);
+            border: 1px solid var(--line);
+        }
+
+        .file-info p {
+            margin: 5px 0;
+        }
+
+        .ws-config {
+            margin-top: 30px;
+        }
+
+        .api-config {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--line);
+        }
+
+        .ws-config label,
+        .api-config label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .ws-input-group,
+        .api-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .combo-config {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--line);
+        }
+
+        .combo-config label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .combo-select {
+            width: 100%;
+            padding: 10px;
+            background: #111c26;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            appearance: none;
+            background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+                              linear-gradient(135deg, var(--text-muted) 50%, transparent 50%),
+                              linear-gradient(to right, transparent, transparent);
+            background-position: calc(100% - 18px) calc(50% - 2px),
+                                 calc(100% - 12px) calc(50% - 2px),
+                                 100% 0;
+            background-size: 6px 6px, 6px 6px, 2.5em 2.5em;
+            background-repeat: no-repeat;
+        }
+
+        .combo-select:focus {
+            outline: none;
+            border-color: var(--accent-cool);
+            box-shadow: 0 0 0 2px rgba(46, 196, 182, 0.2);
+        }
+
+        .ws-url-input,
+        .api-url-input {
+            flex: 1;
+            padding: 10px;
+            background: #111c26;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+        }
+
+        .ws-url-input:focus,
+        .api-url-input:focus {
+            outline: none;
+            border-color: var(--accent-cool);
+            box-shadow: 0 0 0 2px rgba(46, 196, 182, 0.2);
+        }
+
+        .btn-connect {
+            background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            color: #0b1c14;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.25);
+        }
+
+        .btn-connect:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-connect.disconnect {
+            background: linear-gradient(135deg, #ff6b6b 0%, #e63946 100%);
+            color: #1f0d0d;
+            box-shadow: 0 8px 16px rgba(230, 57, 70, 0.25);
+        }
+
+        .btn-connect.disconnect:hover {
+            transform: translateY(-1px);
+        }
+
+        .connection-status {
+            padding: 12px;
+            background: var(--bg-card-strong);
+            border-radius: 10px;
+            font-size: 13px;
+            border: 1px solid var(--line);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-connected {
+            background: #2ecc71;
+        }
+
+        .status-disconnected {
+            background: #e74c3c;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 32px 36px;
+            overflow-y: auto;
+            min-width: 0;
+        }
+
+        .sidebar-toggle {
+            position: fixed;
+            top: 26px;
+            left: 320px;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid transparent;
+            width: 42px;
+            height: 34px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            transition: transform 0.2s, border 0.2s, left 0.2s;
+            z-index: 20;
+        }
+
+        .sidebar-toggle:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+        }
+
+        .main-content h1 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 30px;
+            letter-spacing: 0.4px;
+        }
+
+        .files-table {
+            background: var(--bg-surface);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            border: 1px solid var(--line);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #142331;
+            color: var(--text-muted);
+        }
+
+        th {
+            padding: 16px 18px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        td {
+            padding: 18px;
+            border-bottom: 1px solid var(--line);
+            color: var(--text-primary);
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        .status-enviado {
+            background: rgba(255, 179, 71, 0.18);
+            color: #ffcf85;
+        }
+
+        .status-recebido {
+            background: rgba(46, 196, 182, 0.2);
+            color: #7de2d1;
+        }
+
+        .status-processado {
+            background: rgba(60, 207, 126, 0.2);
+            color: #84f2b9;
+        }
+
+        .status-cancelado {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff9f9f;
+        }
+
+        .status-falha {
+            background: rgba(255, 107, 107, 0.25);
+            color: #ff9f9f;
+        }
+
+        .status-processing {
+            position: relative;
+            background: linear-gradient(120deg, rgba(242, 201, 76, 0.2), rgba(255, 179, 71, 0.35), rgba(242, 201, 76, 0.2));
+            color: #ffe29a;
+            background-size: 200% 200%;
+            animation: processingShimmer 1.6s ease-in-out infinite;
+            box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.2), 0 0 18px rgba(255, 179, 71, 0.25);
+        }
+
+        .status-processing::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ffd166;
+            box-shadow: 0 0 10px rgba(255, 209, 102, 0.8);
+            animation: processingPulse 1s ease-in-out infinite;
+        }
+
+        .download-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .download-link:hover {
+            text-decoration: underline;
+        }
+
+        .token-info {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .uuid {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-card-strong);
+            padding: 18px 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            max-width: 400px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            border: 1px solid var(--line);
+            color: var(--text-primary);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .notification.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .notification.info {
+            border-left: 4px solid var(--accent-cool);
+        }
+
+        @keyframes processingShimmer {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes processingPulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.7;
+            }
+            50% {
+                transform: scale(1.35);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>📤 Upload de Arquivo</h2>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📦</div>
+            <div class="upload-text">
+                Clique ou arraste um arquivo ZIP aqui
+            </div>
+            <input type="file" id="fileInput" accept=".zip" multiple>
+        </div>
+
+        <div class="combo-config">
+            <label for="workflowSelect">🧭 Fluxo desejado</label>
+            <select id="workflowSelect" class="combo-select">
+                <option value="opcao1">Opcao 1 - Documentacao do Projeto</option>
+                <option value="opcao2">Opcao 2 - Conversao (Java 21 - Spring-Boot: 3X)</option>
+                <option value="opcao3">Opcao 3 - Conversao (Java 25 - Spring-Boot: 4X)</option>
+                <option value="opcao4">Opcao 4 - Ampliacao de Teste Unitario</option>
+            </select>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <button class="btn-upload" id="uploadBtn" disabled>Enviar Arquivos</button>
+        </div>
+        <div class="file-info" id="fileInfo" style="display: none;">
+            <p><strong>Arquivo selecionado:</strong></p>
+            <p id="fileName"></p>
+            <p id="fileSize"></p>
+        </div>
+
+        <div class="api-config">
+            <label for="apiUrlInput">🌐 URL da API</label>
+            <div class="api-input-group">
+                <input 
+                    type="text" 
+                    id="apiUrlInput" 
+                    class="api-url-input" 
+                    value="http://localhost:8080/api/v1/upload-file"
+                    placeholder="http://localhost:8080/api/v1/upload-file"
+                >
+            </div>
+        </div>
+
+        <div class="ws-config">
+            <label for="wsUrlInput">🔌 URL do WebSocket</label>
+            <div class="ws-input-group">
+                <input 
+                    type="text" 
+                    id="wsUrlInput" 
+                    class="ws-url-input" 
+                    value="http://localhost:8080/ws"
+                    placeholder="http://localhost:8080/ws"
+                >
+            </div>
+            <button class="btn-connect" id="connectBtn">Conectar</button>
+        </div>
+
+        <div class="connection-status">
+            <span class="status-indicator status-disconnected" id="wsIndicator"></span>
+            <span id="wsStatus">Desconectado</span>
+        </div>
+        <div class="sidebar-resizer" id="sidebarResizer" aria-hidden="true"></div>
+    </div>
+
+    <button class="sidebar-toggle" id="sidebarToggle">&lt;&lt;</button>
+
+    <div class="main-content">
+        <h1>📋 Arquivos Processados</h1>
+        
+        <div class="files-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome do Arquivo</th>
+                        <th>Enviado em</th>
+                        <th>Status</th>
+                        <th>Retorno em</th>
+                        <th>Tokens</th>
+                        <th>Download</th>
+                    </tr>
+                </thead>
+                <tbody id="filesTableBody">
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📭</div>
+                                <p>Nenhum arquivo enviado ainda</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script>
+        // Estado da aplicação
+        let selectedFiles = [];
+        let stompClient = null;
+        let files = [];
+
+        // Elementos DOM
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const filesTableBody = document.getElementById('filesTableBody');
+        const wsIndicator = document.getElementById('wsIndicator');
+        const wsStatus = document.getElementById('wsStatus');
+        const wsUrlInput = document.getElementById('wsUrlInput');
+        const connectBtn = document.getElementById('connectBtn');
+        const apiUrlInput = document.getElementById('apiUrlInput');
+        const workflowSelect = document.getElementById('workflowSelect');
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+
+        // Gerar UUID v4
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // Formatar data/hora
+        function formatDateTime(timestamp) {
+            return new Date(timestamp).toLocaleString('pt-BR');
+        }
+
+        // Formatar tamanho de arquivo
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // Converter arquivo para Base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Mostrar notificação
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Atualizar tabela
+        function getStatusClass(status) {
+            const normalized = (status || '').toUpperCase();
+
+            if (normalized.includes('STARTED') || normalized.includes('PROCESSANDO')) return 'status-processing';
+            if (normalized.includes('PROCESSADO') || normalized.includes('COMPLETED')) return 'status-processado';
+            if (normalized.includes('RECEBIDO')) return 'status-recebido';
+            if (normalized.includes('ENVIADO')) return 'status-enviado';
+            if (normalized.includes('FALHA') || normalized.includes('ERRO')) return 'status-falha';
+            if (normalized.includes('CANCELADO')) return 'status-cancelado';
+
+            return 'status-enviado';
+        }
+
+        function normalizeTimestamp(value) {
+            if (!value) return null;
+            if (typeof value === 'number' && value < 10_000_000_000) {
+                return value * 1000;
+            }
+            if (typeof value === 'string') {
+                const parsed = Date.parse(value);
+                return Number.isNaN(parsed) ? null : parsed;
+            }
+            return value;
+        }
+
+        function normalizeNotificationPayload(payload) {
+            if (!payload) return null;
+
+            if (payload.data) {
+                return {
+                    id_key_processor: payload.projectId || payload.fileId,
+                    status: payload.data.status || payload.status || payload.type,
+                    timestamp: payload.timestamp,
+                    tot_token_input: payload.data.promptTokens,
+                    tot_token_output: payload.data.generationTokens,
+                    tot_final: payload.data.totalTokens,
+                    url_download_file: payload.data.downloadUrl,
+                    message: payload.message,
+                    type: payload.type
+                };
+            }
+
+            return payload;
+        }
+
+        function resolveDownloadUrl(url) {
+            if (!url) return null;
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+
+            const apiUrl = apiUrlInput.value.trim();
+            if (!apiUrl) return url;
+
+            try {
+                const base = new URL(apiUrl);
+                return `${base.protocol}//${base.host}${url.startsWith('/') ? url : '/' + url}`;
+            } catch (error) {
+                return url;
+            }
+        }
+
+        function updateTable() {
+            if (files.length === 0) {
+                filesTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📭</div>
+                                <p>Nenhum arquivo enviado ainda</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filesTableBody.innerHTML = files.map(file => `
+                <tr>
+                    <td>
+                        <div class="uuid">${file.id_key_processor}</div>
+                    </td>
+                    <td>${file.filename}</td>
+                    <td>${formatDateTime(file.timestamp_envio)}</td>
+                    <td>
+                        <span class="status-badge ${getStatusClass(file.status)}">${file.status}</span>
+                    </td>
+                    <td>${file.timestamp_retorno ? formatDateTime(file.timestamp_retorno) : '-'}</td>
+                    <td>
+                        ${file.tot_final ? `
+                            <div class="token-info">
+                                In: ${file.tot_token_input || 0}<br>
+                                Out: ${file.tot_token_output || 0}<br>
+                                <strong>Total: ${file.tot_final}</strong>
+                            </div>
+                        ` : '-'}
+                    </td>
+                    <td>
+                        ${file.url_download_file ? `<a href="${file.url_download_file}" class="download-link" target="_blank">⬇️ Baixar</a>` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Eventos de drag and drop
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            const droppedFiles = Array.from(e.dataTransfer.files || []);
+            if (droppedFiles.length > 0) {
+                handleFileSelect(droppedFiles);
+            } else {
+                showNotification('Por favor, selecione arquivos ZIP validos', 'error');
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+                handleFileSelect(files);
+            }
+        });
+
+        function handleFileSelect(fileList) {
+            const zipFiles = fileList.filter(file => file.name.endsWith('.zip'));
+            if (zipFiles.length === 0) {
+                showNotification('Por favor, selecione arquivos ZIP', 'error');
+                return;
+            }
+
+            selectedFiles = zipFiles;
+            const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+            fileName.textContent = '';
+            const list = document.createElement('ul');
+            list.style.margin = '8px 0 0 18px';
+            list.style.color = 'inherit';
+            selectedFiles.forEach((file) => {
+                const item = document.createElement('li');
+                item.textContent = file.name;
+                list.appendChild(item);
+            });
+            fileName.appendChild(list);
+            fileSize.textContent = `Tamanho total: ${formatFileSize(totalSize)}`;
+            fileInfo.style.display = 'block';
+            uploadBtn.disabled = false;
+            
+            showNotification('Arquivos selecionados com sucesso!', 'success');
+        }
+
+        // Enviar arquivo
+        uploadBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            const apiUrl = apiUrlInput.value.trim();
+            
+            if (!apiUrl) {
+                showNotification('Por favor, informe a URL da API', 'error');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Enviando...';
+
+            try {
+                const optionalValue = workflowSelect ? workflowSelect.value : '';
+                const failures = [];
+                for (const file of selectedFiles) {
+                    // Converter para Base64
+                    const base64Content = await fileToBase64(file);
+
+                    // Gerar UUID
+                    const uuid = generateUUID();
+
+                    // Criar payload
+                    const payload = {
+                        id_key_processor: uuid,
+                        content_file: base64Content,
+                        optional: optionalValue
+                    };
+
+                    // Adicionar arquivo à lista
+                    const fileEntry = {
+                        id_key_processor: uuid,
+                        filename: file.name,
+                        timestamp_envio: Date.now(),
+                        status: 'Enviado - Ag. Processamento',
+                        timestamp_retorno: null,
+                        tot_token_input: null,
+                        tot_token_output: null,
+                        tot_final: null,
+                        url_download_file: null
+                    };
+
+                    files.unshift(fileEntry);
+                    updateTable();
+
+                    // Enviar para API usando a URL configurada
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        showNotification(`Arquivo enviado com sucesso: ${file.name}`, 'success');
+
+                        // Atualizar status
+                        const fileIndex = files.findIndex(f => f.id_key_processor === uuid);
+                        if (fileIndex !== -1) {
+                            files[fileIndex].status = 'Recebido';
+                            updateTable();
+                        }
+                    } else {
+                        failures.push(file.name);
+                        const fileIndex = files.findIndex(f => f.id_key_processor === uuid);
+                        if (fileIndex !== -1) {
+                            files[fileIndex].status = 'Falha de processamento';
+                            updateTable();
+                        }
+                    }
+                }
+                if (failures.length > 0) {
+                    showNotification(`Falha ao enviar: ${failures.join(', ')}`, 'error');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                showNotification('Erro ao enviar arquivo: ' + error.message, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Enviar Arquivos';
+                selectedFiles = [];
+                fileInput.value = '';
+                fileInfo.style.display = 'none';
+            }
+        });
+
+        // WebSocket
+        function normalizeSockJsUrl(url) {
+            if (!url) return '';
+            if (url.startsWith('ws://')) return 'http://' + url.slice(5);
+            if (url.startsWith('wss://')) return 'https://' + url.slice(6);
+            return url;
+        }
+
+        function connectWebSocket() {
+            const wsUrl = normalizeSockJsUrl(wsUrlInput.value.trim());
+            
+            if (!wsUrl) {
+                showNotification('Por favor, informe a URL do WebSocket', 'error');
+                return;
+            }
+
+            // Se ja existe conexao, desconectar primeiro
+            if (stompClient && stompClient.connected) {
+                stompClient.disconnect(() => {
+                    wsIndicator.className = 'status-indicator status-disconnected';
+                    wsStatus.textContent = 'Desconectado';
+                    connectBtn.textContent = 'Conectar';
+                    connectBtn.className = 'btn-connect';
+                    wsUrlInput.disabled = false;
+                });
+                return;
+            }
+
+            try {
+                wsIndicator.className = 'status-indicator status-disconnected';
+                wsStatus.textContent = 'Conectando...';
+                connectBtn.disabled = true;
+
+                const socket = new SockJS(wsUrl);
+                stompClient = Stomp.over(socket);
+                stompClient.debug = null;
+
+                stompClient.connect({}, () => {
+                    wsIndicator.className = 'status-indicator status-connected';
+                    wsStatus.textContent = 'Conectado';
+                    connectBtn.textContent = 'Desconectar';
+                    connectBtn.className = 'btn-connect disconnect';
+                    connectBtn.disabled = false;
+                    wsUrlInput.disabled = true;
+                    showNotification('Conectado ao servidor WebSocket', 'success');
+
+                    stompClient.subscribe('/topic/notifications', (message) => {
+                        try {
+                            const rawPayload = JSON.parse(message.body);
+                            const data = normalizeNotificationPayload(rawPayload);
+
+                            if (!data || !data.id_key_processor) return;
+
+                            const fileIndex = files.findIndex(f => f.id_key_processor === data.id_key_processor);
+
+                            if (fileIndex !== -1) {
+                                files[fileIndex] = {
+                                    ...files[fileIndex],
+                                    status: data.status || files[fileIndex].status,
+                                    timestamp_retorno: normalizeTimestamp(data.timestamp) || Date.now(),
+                                    tot_token_input: data.tot_token_input,
+                                    tot_token_output: data.tot_token_output,
+                                    tot_final: data.tot_final,
+                                    url_download_file: resolveDownloadUrl(data.url_download_file || data.url_downlod_file)
+                                };
+
+                                updateTable();
+                                showNotification(`Arquivo processado: ${files[fileIndex].filename}`, 'success');
+                            }
+                        } catch (error) {
+                            console.error('Erro ao processar mensagem WebSocket:', error);
+                        }
+                    });
+                }, (error) => {
+                    console.error('Erro WebSocket:', error);
+                    wsIndicator.className = 'status-indicator status-disconnected';
+                    wsStatus.textContent = 'Erro na conexão';
+                    connectBtn.textContent = 'Conectar';
+                    connectBtn.className = 'btn-connect';
+                    connectBtn.disabled = false;
+                    wsUrlInput.disabled = false;
+                    showNotification('Erro ao conectar no WebSocket', 'error');
+                });
+
+            } catch (error) {
+                console.error('Erro ao conectar WebSocket:', error);
+                wsIndicator.className = 'status-indicator status-disconnected';
+                wsStatus.textContent = 'Erro ao conectar';
+                connectBtn.disabled = false;
+                showNotification('Erro ao conectar WebSocket: ' + error.message, 'error');
+            }
+        }
+
+        // Event listener para o botão de conectar
+        connectBtn.addEventListener('click', () => {
+            if (stompClient && stompClient.connected) {
+                // Desconectar
+                stompClient.disconnect(() => {
+                    wsIndicator.className = 'status-indicator status-disconnected';
+                    wsStatus.textContent = 'Desconectado';
+                    connectBtn.textContent = 'Conectar';
+                    connectBtn.className = 'btn-connect';
+                    wsUrlInput.disabled = false;
+                });
+            } else {
+                // Conectar
+                connectWebSocket();
+            }
+        });
+
+        // Permitir conectar pressionando Enter no campo de URL
+        wsUrlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && (!stompClient || !stompClient.connected)) {
+                connectWebSocket();
+            }
+        });
+
+        // Redimensionamento do sidebar com mouse
+        let isResizing = false;
+
+        sidebarResizer.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            isResizing = true;
+            sidebarResizer.classList.add('is-resizing');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (event) => {
+            if (!isResizing) return;
+            const minWidth = 260;
+            const maxWidth = 480;
+            const nextWidth = Math.min(maxWidth, Math.max(minWidth, event.clientX));
+            sidebar.style.width = `${nextWidth}px`;
+            updateSidebarTogglePosition();
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!isResizing) return;
+            isResizing = false;
+            sidebarResizer.classList.remove('is-resizing');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            updateSidebarTogglePosition();
+        });
+
+        sidebarToggle.addEventListener('click', () => {
+            document.body.classList.toggle('sidebar-hidden');
+            const isHidden = document.body.classList.contains('sidebar-hidden');
+            sidebarToggle.textContent = isHidden ? '>>' : '<<';
+            updateSidebarTogglePosition();
+        });
+
+        function updateSidebarTogglePosition() {
+            if (!sidebarToggle) return;
+            const isHidden = document.body.classList.contains('sidebar-hidden');
+            if (isHidden) {
+                sidebarToggle.style.left = '16px';
+                return;
+            }
+            const sidebarRect = sidebar.getBoundingClientRect();
+            sidebarToggle.style.left = `${sidebarRect.right}px`;
+        }
+
+        // Inicializar
+        updateTable();
+        updateSidebarTogglePosition();
+        connectWebSocket();
+    </script>
+</body>
+</html>

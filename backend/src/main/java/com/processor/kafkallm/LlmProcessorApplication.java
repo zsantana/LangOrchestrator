@@ -2,7 +2,6 @@ package com.processor.kafkallm;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
@@ -16,11 +15,10 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * - API REST para download
  */
 @SpringBootApplication
-@EnableKafka
 @EnableAsync
-public class KafkaLlmProcessorApplication {
+public class LlmProcessorApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(KafkaLlmProcessorApplication.class, args);
+        SpringApplication.run(LlmProcessorApplication.class, args);
     }
 }

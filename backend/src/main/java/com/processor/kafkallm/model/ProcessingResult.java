@@ -24,6 +24,9 @@ public class ProcessingResult {
     private String status;
     private String filePath;
     private Long processingTimeMs;
+    private Long promptTokens;
+    private Long generationTokens;
+    private Long totalTokens;
 
     @Data
     @Builder

@@ -32,6 +32,9 @@ public class ProcessingNotification {
         private String filePath;
         private Long processingTimeMs;
         private String downloadUrl;
+        private Long promptTokens;
+        private Long generationTokens;
+        private Long totalTokens;
         private String error;
     }
 

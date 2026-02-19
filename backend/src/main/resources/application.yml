@@ -18,27 +18,42 @@ spring:
       api-key: ${ANTHROPIC_API_KEY}
       chat:
         options:
-          model: claude-3-5-sonnet-20241022
-          max-tokens: 8000
+          model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
+          max-tokens: 20000
           temperature: 0.7
 
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+  # Configuration for Jackson JSON parser stream reading constraints
+  # max-string-length: Maximum allowed length for JSON string values
+  # Unit: characters (número de caracteres)
+  # Value: 900000000 characters (~900 million characters, approximately 900 MB in UTF-8)
+  # Purpose: Prevents denial-of-service attacks from extremely large string values in JSON payloads
+  jackson:
+    stream-read-constraints:
+      max-string-length: 900000000
+
+#claude-sonnet-4-5-20250929
 app:
   llm:
-    model: claude-3-5-sonnet-20241022
-    max-tokens: 8000
+    model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
+    max-tokens: 20000
     temperature: 0.7
-    system-prompt: |
-      Você é um especialista em análise de código e arquitetura de software.
-      Analise a estrutura do projeto fornecida e forneça:
+    # system-prompt: |
+    #   Você é um especialista em análise de código e arquitetura de software.
+    #   Analise a estrutura do projeto fornecida e forneça:
       
-      1. **Resumo Geral**: Uma visão geral do projeto
-      2. **Tecnologias Principais**: Identifique as principais tecnologias e frameworks
-      3. **Tipo de Projeto**: Classifique o tipo de projeto (web, mobile, desktop, etc.)
-      4. **Recomendações**: Sugestões de melhorias na estrutura
-      5. **Pontuação de Complexidade**: De 1 a 10
-      6. **Problemas Potenciais**: Identifique possíveis problemas de arquitetura
+    #   1. **Resumo Geral**: Uma visão geral do projeto
+    #   2. **Tecnologias Principais**: Identifique as principais tecnologias e frameworks
+    #   3. **Tipo de Projeto**: Classifique o tipo de projeto (web, mobile, desktop, etc.)
+    #   4. **Recomendações**: Sugestões de melhorias na estrutura
+    #   5. **Pontuação de Complexidade**: De 1 a 10
+    #   6. **Problemas Potenciais**: Identifique possíveis problemas de arquitetura
       
-      Forneça sua análise de forma estruturada e objetiva.
+    #   Forneça sua análise de forma estruturada e objetiva.
       
   storage:
     base-path: ./output
