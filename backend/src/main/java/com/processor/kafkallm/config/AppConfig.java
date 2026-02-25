@@ -4,7 +4,7 @@ import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+// import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -15,7 +15,7 @@ import org.springframework.util.StreamUtils;
  */
 @Data
 @Configuration
-@ConfigurationProperties(prefix = "app")
+// @ConfigurationProperties(prefix = "app")
 public class AppConfig {
 
     private LlmConfig llm = new LlmConfig();
@@ -42,15 +42,24 @@ public class AppConfig {
         } catch (IOException ex) {
             throw new IllegalStateException("Nao foi possivel carregar system_prompt", ex);
         }
+
+        // carregar template HTML
+        Resource templateResource = resourceLoader.getResource(llm.templateHTML);
+        try (var inputStream = templateResource.getInputStream()) {
+            llm.templateHTML = StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Nao foi possivel carregar template HTML", ex);
+        }
     }
 
     @Data
     public static class LlmConfig {
         private String model = System.getenv().getOrDefault("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022");
         private Integer maxTokens = System.getenv().getOrDefault("ANTHROPIC_MAX_TOKENS", "20000").isBlank() ? 20000 : Integer.parseInt(System.getenv().getOrDefault("ANTHROPIC_MAX_TOKENS", "20000"));
-        private Double temperature = 0.7;
-        private String systemPromptPath = "classpath:system_prompt.md";
+        private Double temperature = 0.;
+        private String systemPromptPath = "classpath:system_prompt_v3.md";
         private String systemPrompt = "";
+        private String templateHTML = "classpath:template.html";
     }
 
     @Data

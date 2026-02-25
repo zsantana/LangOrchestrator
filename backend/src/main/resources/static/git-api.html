@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Git API Console</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-base: #0f1a24;
+            --bg-surface: #121f2a;
+            --bg-card: #182633;
+            --bg-card-strong: #1d2e3c;
+            --text-primary: #e7eef5;
+            --text-muted: #9fb0bf;
+            --accent: #ffb347;
+            --accent-strong: #ff8f1f;
+            --accent-cool: #2ec4b6;
+            --danger: #ff6b6b;
+            --success: #3ccf7e;
+            --warning: #f2c94c;
+            --line: rgba(255, 255, 255, 0.08);
+            --shadow: 0 20px 60px rgba(8, 15, 22, 0.45);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            display: flex;
+            min-height: 100vh;
+            color: var(--text-primary);
+            background: radial-gradient(circle at top left, #1b2d3c 0%, #0f1a24 45%, #0b141d 100%);
+            overflow-x: hidden;
+        }
+
+        .sidebar {
+            width: 340px;
+            background: linear-gradient(180deg, #1a2a38 0%, #101c26 100%);
+            padding: 24px 20px;
+            border-right: 1px solid var(--line);
+            box-shadow: 12px 0 40px rgba(4, 10, 16, 0.5);
+            overflow-y: auto;
+            min-width: 280px;
+            max-width: 440px;
+            flex-shrink: 0;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 16px;
+            font-size: 22px;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 10px;
+        }
+
+        .config-card {
+            background: var(--bg-card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .config-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .config-row {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #111c26;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--accent-cool);
+            box-shadow: 0 0 0 2px rgba(46, 196, 182, 0.2);
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.75;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+            color: #1b1b1b;
+            box-shadow: 0 10px 20px rgba(255, 143, 31, 0.25);
+        }
+
+        .btn-connect {
+            background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            color: #0b1c14;
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.25);
+        }
+
+        .btn-connect.disconnect {
+            background: linear-gradient(135deg, #ff6b6b 0%, #e63946 100%);
+            color: #1f0d0d;
+            box-shadow: 0 8px 16px rgba(230, 57, 70, 0.25);
+        }
+
+        .result {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--bg-card-strong);
+            padding: 10px;
+            margin-top: 10px;
+            min-height: 54px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            line-height: 1.4;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        .muted {
+            color: var(--text-muted);
+        }
+
+        .success {
+            border-color: rgba(60, 207, 126, 0.5);
+        }
+
+        .error {
+            border-color: rgba(255, 107, 107, 0.6);
+        }
+
+        .helper {
+            color: var(--warning);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .connection-status {
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: var(--bg-card-strong);
+            border: 1px solid var(--line);
+            font-size: 13px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-connected {
+            background: #2ecc71;
+        }
+
+        .status-disconnected {
+            background: #e74c3c;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .page-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .page-head h1 {
+            font-size: 30px;
+            letter-spacing: 0.3px;
+        }
+        .head-metrics {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .files-table {
+            background: var(--bg-surface);
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .table-scroll {
+            overflow: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 1040px;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #142331;
+            color: var(--text-muted);
+        }
+
+        th {
+            padding: 16px 18px;
+            text-align: left;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--line);
+            color: var(--text-primary);
+            vertical-align: top;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .uuid {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            max-width: 220px;
+            overflow-wrap: anywhere;
+        }
+
+        .repo-link {
+            color: #9bc0ff;
+            text-decoration: none;
+            word-break: break-all;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+        }
+
+        .repo-link:hover {
+            text-decoration: underline;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-enviado {
+            background: rgba(255, 179, 71, 0.18);
+            color: #ffcf85;
+        }
+
+        .status-aguardando {
+            background: rgba(96, 165, 250, 0.18);
+            color: #b6d5ff;
+            box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.25);
+        }
+
+        .status-recebido {
+            background: rgba(46, 196, 182, 0.2);
+            color: #7de2d1;
+        }
+
+        .status-processado {
+            background: rgba(60, 207, 126, 0.2);
+            color: #84f2b9;
+        }
+
+        .status-cancelado {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff9f9f;
+        }
+
+        .status-falha {
+            background: rgba(255, 107, 107, 0.25);
+            color: #ff9f9f;
+        }
+
+        .status-processing {
+            position: relative;
+            background: linear-gradient(120deg, rgba(242, 201, 76, 0.2), rgba(255, 179, 71, 0.35), rgba(242, 201, 76, 0.2));
+            color: #ffe29a;
+            background-size: 200% 200%;
+            animation: processingShimmer 1.6s ease-in-out infinite;
+        }
+
+        .status-processing::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ffd166;
+            box-shadow: 0 0 10px rgba(255, 209, 102, 0.8);
+            animation: processingPulse 1s ease-in-out infinite;
+        }
+
+        .token-info {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+
+        .token-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(72px, 1fr));
+            gap: 8px;
+            min-width: 230px;
+        }
+
+        .token-pill {
+            position: relative;
+            background: linear-gradient(150deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 8px 10px;
+            display: grid;
+            gap: 4px;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(6px);
+        }
+
+        .token-pill.total {
+            background: linear-gradient(150deg, rgba(255, 179, 71, 0.2), rgba(255, 179, 71, 0.05));
+            border-color: rgba(255, 179, 71, 0.45);
+            box-shadow: 0 10px 20px rgba(255, 179, 71, 0.12);
+        }
+
+        .token-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 700;
+        }
+
+        .token-value {
+            font-size: 13px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            color: #f2f6ff;
+            font-weight: 700;
+        }
+
+        .token-pill.total .token-value {
+            color: #ffe1a8;
+        }
+
+        .download-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(46, 196, 182, 0.55);
+            background: linear-gradient(145deg, rgba(46, 196, 182, 0.22), rgba(46, 196, 182, 0.08));
+            color: #b8fff3;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 12px 22px rgba(46, 196, 182, 0.18);
+        }
+
+        .download-link::before {
+            content: '↓';
+            font-size: 14px;
+            display: inline-block;
+            color: #b8fff3;
+        }
+
+        .download-link:hover {
+            transform: translateY(-1px);
+            border-color: rgba(46, 196, 182, 0.8);
+            box-shadow: 0 16px 26px rgba(46, 196, 182, 0.26);
+        }
+
+        .btn-clone {
+            background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+            color: #eaf2ff;
+            font-size: 12px;
+            padding: 8px 12px;
+            box-shadow: 0 8px 14px rgba(37, 99, 235, 0.25);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 56px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 54px;
+            margin-bottom: 14px;
+        }
+
+        .token-total {
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: linear-gradient(150deg, rgba(255, 179, 71, 0.18), rgba(255, 179, 71, 0.06));
+            border: 1px solid rgba(255, 179, 71, 0.4);
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffe1a8;
+            min-width: 180px;
+        }
+
+        .token-total span {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .sidebar-toggle {
+            position: fixed;
+            top: 20px;
+            left: 340px;
+            transform: translateX(-50%);
+            width: 42px;
+            height: 34px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            font-size: 16px;
+            font-weight: 700;
+            z-index: 10;
+        }
+
+        .sidebar-toggle:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+        }
+
+        .sidebar-hidden .sidebar {
+            width: 0;
+            min-width: 0;
+            max-width: 0;
+            padding: 0;
+            overflow: hidden;
+            border-right: none;
+            box-shadow: none;
+        }
+
+        .sidebar-hidden .sidebar > * {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        @keyframes processingShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes processingPulse {
+            0%, 100% { opacity: 0.6; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.15); }
+        }
+
+        @media (max-width: 980px) {
+            body {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-width: none;
+                min-width: 0;
+            }
+
+            .main-content {
+                padding: 18px;
+            }
+
+            .sidebar-toggle {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <h2>⚙️ Configurações</h2>
+
+        <div class="config-card">
+            <div class="config-title">API Git</div>
+            <div class="config-row">
+                <label for="apiBase">Base da API</label>
+                <input id="apiBase" type="text" placeholder="http://localhost:8080" />
+            </div>
+            <div class="config-row">
+                <label for="listBaseUrl">base_url de listagem</label>
+                <input id="listBaseUrl" type="url" placeholder="https://api.github.com/users/seu-user/repos" />
+            </div>
+            <div class="config-row">
+                <label for="listToken">token (opcional)</label>
+                <input id="listToken" type="password" placeholder="ghp_xxx" />
+            </div>
+            <button id="btnListRepos" class="btn-primary" type="button">Listar projetos</button>
+            <div id="listResult" class="result muted">Aguardando listagem...</div>
+        </div>
+
+        <div class="config-card">
+            <div class="config-title">WebSocket</div>
+            <div class="config-row">
+                <label for="wsUrlInput">URL do WebSocket</label>
+                <input id="wsUrlInput" type="text" value="http://localhost:8080/ws" placeholder="http://localhost:8080/ws" />
+            </div>
+            <button id="connectBtn" class="btn-connect" type="button">Conectar</button>
+            <div class="connection-status" style="margin-top:10px;">
+                <span class="status-indicator status-disconnected" id="wsIndicator"></span>
+                <span id="wsStatus">Desconectado</span>
+            </div>
+        </div>
+
+        <div class="config-card">
+            <div class="config-title">Retorno do Clone</div>
+            <p class="helper">Use o botão Clonar em cada projeto. Status, tokens e download podem ser atualizados por WebSocket via id_key_processor.</p>
+            <div id="cloneResult" class="result muted">Aguardando clone sob demanda...</div>
+        </div>
+    </aside>
+
+    <button class="sidebar-toggle" id="sidebarToggle" type="button">&lt;&lt;</button>
+
+    <main class="main-content">
+        <div class="page-head">
+            <h1>📦 Projetos Listados</h1>
+            <div class="head-metrics">
+                <div class="token-total">
+                    <div>Total tokens</div>
+                    <span id="totalTokensValue">0</span>
+                </div>
+                <div class="connection-status">
+                    <span class="status-indicator status-disconnected" id="wsIndicatorHead"></span>
+                    <span id="wsStatusHead">Desconectado</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="files-table">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Projeto</th>
+                            <th>Status</th>
+                            <th>Tokens</th>
+                            <th>Download</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reposTableBody">
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📭</div>
+                                    <p>Nenhum projeto listado ainda</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script>
+        let repositories = [];
+        let stompClient = null;
+
+        const apiBaseInput = document.getElementById('apiBase');
+        const listBaseUrlInput = document.getElementById('listBaseUrl');
+        const listTokenInput = document.getElementById('listToken');
+        const btnListRepos = document.getElementById('btnListRepos');
+
+        const wsUrlInput = document.getElementById('wsUrlInput');
+        const connectBtn = document.getElementById('connectBtn');
+        const wsIndicator = document.getElementById('wsIndicator');
+        const wsStatus = document.getElementById('wsStatus');
+        const wsIndicatorHead = document.getElementById('wsIndicatorHead');
+        const wsStatusHead = document.getElementById('wsStatusHead');
+        const totalTokensValue = document.getElementById('totalTokensValue');
+
+        const listResult = document.getElementById('listResult');
+        const cloneResult = document.getElementById('cloneResult');
+        const reposTableBody = document.getElementById('reposTableBody');
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+
+        apiBaseInput.value = window.location.origin;
+
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        function normalizeBase(base) {
+            return (base || '').trim().replace(/\/+$/, '');
+        }
+
+        function endpoint(path) {
+            return `${normalizeBase(apiBaseInput.value || window.location.origin)}${path}`;
+        }
+
+        function getStatusClass(status) {
+            const normalized = (status || '').toUpperCase();
+            if (normalized.includes('AGUARDANDO')) return 'status-aguardando';
+            if (normalized.includes('STARTED') || normalized.includes('PROCESSANDO')) return 'status-processing';
+            if (normalized.includes('PROCESSADO') || normalized.includes('COMPLETED')) return 'status-processado';
+            if (normalized.includes('RECEBIDO')) return 'status-recebido';
+            if (normalized.includes('ENVIADO')) return 'status-enviado';
+            if (normalized.includes('FALHA') || normalized.includes('ERRO')) return 'status-falha';
+            if (normalized.includes('CANCELADO')) return 'status-cancelado';
+            return 'status-enviado';
+        }
+
+        function normalizeTimestamp(value) {
+            if (!value) return null;
+            if (typeof value === 'number' && value < 10_000_000_000) return value * 1000;
+            if (typeof value === 'string') {
+                const parsed = Date.parse(value);
+                return Number.isNaN(parsed) ? null : parsed;
+            }
+            return value;
+        }
+
+        function normalizeSockJsUrl(url) {
+            if (!url) return '';
+            if (url.startsWith('ws://')) return 'http://' + url.slice(5);
+            if (url.startsWith('wss://')) return 'https://' + url.slice(6);
+            return url;
+        }
+
+        function normalizeNotificationPayload(payload) {
+            if (!payload) return null;
+            if (payload.data) {
+                return {
+                    id_key_processor: payload.projectId || payload.fileId || payload.id_key_processor,
+                    status: payload.data.status || payload.status || payload.type,
+                    timestamp: payload.timestamp,
+                    tot_token_input: payload.data.promptTokens,
+                    tot_token_output: payload.data.generationTokens,
+                    tot_final: payload.data.totalTokens,
+                    url_download_file: payload.data.downloadUrl
+                };
+            }
+            return payload;
+        }
+
+        function resolveDownloadUrl(url) {
+            if (!url) return null;
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            const baseApi = normalizeBase(apiBaseInput.value || window.location.origin);
+            try {
+                const base = new URL(baseApi);
+                return `${base.protocol}//${base.host}${url.startsWith('/') ? url : '/' + url}`;
+            } catch {
+                return url;
+            }
+        }
+
+        function formatTokens(repo) {
+            if (!repo.tot_final) return '-';
+            return `
+                <div class="token-grid">
+                    <div class="token-pill">
+                        <span class="token-label">Input</span>
+                        <span class="token-value">${repo.tot_token_input || 0}</span>
+                    </div>
+                    <div class="token-pill">
+                        <span class="token-label">Output</span>
+                        <span class="token-value">${repo.tot_token_output || 0}</span>
+                    </div>
+                    <div class="token-pill total">
+                        <span class="token-label">Total</span>
+                        <span class="token-value">${repo.tot_final}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateResult(element, text, isError = false) {
+            element.textContent = text;
+            element.classList.remove('muted', 'error', 'success');
+            element.classList.add(isError ? 'error' : 'success');
+        }
+
+        function updateWsUi(connected, text) {
+            wsIndicator.className = `status-indicator ${connected ? 'status-connected' : 'status-disconnected'}`;
+            wsIndicatorHead.className = `status-indicator ${connected ? 'status-connected' : 'status-disconnected'}`;
+            wsStatus.textContent = text;
+            wsStatusHead.textContent = text;
+        }
+
+        async function postJson(url, body) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const contentType = response.headers.get('content-type') || '';
+            const data = contentType.includes('application/json') ? await response.json() : await response.text();
+
+            if (!response.ok) {
+                throw new Error(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+            }
+
+            return data;
+        }
+
+        function updateTable() {
+            updateTotalTokens();
+            if (!repositories.length) {
+                reposTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📭</div>
+                                <p>Nenhum projeto listado ainda</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            reposTableBody.innerHTML = repositories.map((repo) => {
+                const status = repo.status || 'Aguardando clone';
+                const downloadUrl = repo.url_download_file ? resolveDownloadUrl(repo.url_download_file) : null;
+                const isProcessing = String(status).toUpperCase().includes('STARTED') || String(status).toUpperCase().includes('PROCESSANDO');
+                return `
+                    <tr>
+                        <td><div class="uuid">${repo.id_key_processor || '-'}</div></td>
+                        <td>
+                            <div>${repo.name || '-'}</div>
+                            ${repo.cloneUrl ? `<a href="${repo.cloneUrl}" class="repo-link" target="_blank" rel="noopener noreferrer">${repo.cloneUrl}</a>` : '-'}
+                        </td>
+                        <td><span class="status-badge ${getStatusClass(status)}">${status}</span></td>
+                        <td><div class="token-info">${formatTokens(repo)}</div></td>
+                        <td>
+                            ${downloadUrl ? `
+                                <a href="${downloadUrl}" class="download-link" target="_blank" rel="noopener noreferrer">Baixar arquivo</a>
+                            ` : '-'}
+                        </td>
+                        <td><button class="btn-clone" type="button" data-repo-id="${repo.localId}" ${isProcessing ? 'disabled' : ''}>Clonar</button></td>
+                    </tr>
+                `;
+            }).join('');
+
+            reposTableBody.querySelectorAll('.btn-clone').forEach((button) => {
+                button.addEventListener('click', () => cloneRepository(button.dataset.repoId, button));
+            });
+        }
+        function updateTotalTokens() {
+            const total = repositories.reduce((sum, repo) => sum + (Number(repo.tot_final) || 0), 0);
+            totalTokensValue.textContent = total.toLocaleString('pt-BR');
+        }
+
+        async function listRepositories() {
+            const baseUrl = listBaseUrlInput.value.trim();
+            if (!baseUrl) {
+                updateResult(listResult, 'Informe base_url para listar os projetos.', true);
+                return;
+            }
+
+            btnListRepos.disabled = true;
+            btnListRepos.textContent = 'Listando...';
+
+            try {
+                const repos = await postJson(endpoint('/api/git/list'), {
+                    base_url: baseUrl,
+                    token: listTokenInput.value.trim() || null
+                });
+
+                repositories = (Array.isArray(repos) ? repos : []).map((repo, index) => ({
+                    localId: `repo-${index}-${Date.now()}`,
+                    name: repo.name,
+                    cloneUrl: repo.cloneUrl,
+                    language: repo.language,
+                    projectType: repo.projectType,
+                    id_key_processor: null,
+                    status: 'Aguardando clone',
+                    tot_token_input: null,
+                    tot_token_output: null,
+                    tot_final: null,
+                    url_download_file: null,
+                    timestamp_retorno: null
+                }));
+
+                updateTable();
+                updateResult(listResult, `Sucesso: ${repositories.length} projeto(s) encontrado(s).`);
+            } catch (error) {
+                repositories = [];
+                updateTable();
+                updateResult(listResult, error.message || 'Falha ao listar repositórios.', true);
+            } finally {
+                btnListRepos.disabled = false;
+                btnListRepos.textContent = 'Listar projetos';
+            }
+        }
+
+        async function cloneRepository(localId, button) {
+            const repoIndex = repositories.findIndex((repo) => repo.localId === localId);
+            if (repoIndex === -1) return;
+
+            const repo = repositories[repoIndex];
+            if (!repo.cloneUrl) {
+                updateResult(cloneResult, 'Projeto sem cloneUrl para clonagem.', true);
+                return;
+            }
+
+            const token = listTokenInput.value.trim();
+            const idKey = generateUUID();
+
+            repositories[repoIndex].id_key_processor = idKey;
+            repositories[repoIndex].status = 'Enviado - Clone Git';
+            repositories[repoIndex].tot_token_input = null;
+            repositories[repoIndex].tot_token_output = null;
+            repositories[repoIndex].tot_final = null;
+            repositories[repoIndex].url_download_file = null;
+            updateTable();
+
+            const endpointPath = token ? '/api/git/clone/private' : '/api/git/clone/public';
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Clonando...';
+
+            try {
+                const response = await postJson(endpoint(endpointPath), {
+                    id_key_processor: idKey,
+                    repo_url: repo.cloneUrl,
+                    token: token || null
+                });
+
+                repositories[repoIndex].status = 'STARTED';
+                updateTable();
+                updateResult(cloneResult, `Clone enviado para ${repo.name || repo.cloneUrl}: ${String(response)}`);
+            } catch (error) {
+                repositories[repoIndex].status = 'Falha de processamento';
+                updateTable();
+                updateResult(cloneResult, error.message || 'Falha no clone sob demanda.', true);
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        function connectWebSocket() {
+            const wsUrl = normalizeSockJsUrl(wsUrlInput.value.trim());
+            if (!wsUrl) {
+                updateResult(cloneResult, 'Por favor, informe a URL do WebSocket.', true);
+                return;
+            }
+
+            if (stompClient && stompClient.connected) {
+                stompClient.disconnect(() => {
+                    updateWsUi(false, 'Desconectado');
+                    connectBtn.textContent = 'Conectar';
+                    connectBtn.className = 'btn-connect';
+                    wsUrlInput.disabled = false;
+                });
+                return;
+            }
+
+            try {
+                connectBtn.disabled = true;
+                updateWsUi(false, 'Conectando...');
+
+                const socket = new SockJS(wsUrl);
+                stompClient = Stomp.over(socket);
+                stompClient.debug = null;
+
+                stompClient.connect({}, () => {
+                    updateWsUi(true, 'Conectado');
+                    connectBtn.textContent = 'Desconectar';
+                    connectBtn.className = 'btn-connect disconnect';
+                    connectBtn.disabled = false;
+                    wsUrlInput.disabled = true;
+
+                    stompClient.subscribe('/topic/notifications', (message) => {
+                        try {
+                            const rawPayload = JSON.parse(message.body);
+                            const data = normalizeNotificationPayload(rawPayload);
+                            if (!data || !data.id_key_processor) return;
+
+                            const repoIndex = repositories.findIndex((repo) => repo.id_key_processor === data.id_key_processor);
+                            if (repoIndex === -1) return;
+
+                            repositories[repoIndex] = {
+                                ...repositories[repoIndex],
+                                status: data.status || repositories[repoIndex].status,
+                                timestamp_retorno: normalizeTimestamp(data.timestamp) || Date.now(),
+                                tot_token_input: data.tot_token_input,
+                                tot_token_output: data.tot_token_output,
+                                tot_final: data.tot_final,
+                                url_download_file: data.url_download_file || data.url_downlod_file || repositories[repoIndex].url_download_file
+                            };
+
+                            updateTable();
+                        } catch {
+                            updateResult(cloneResult, 'Erro ao processar mensagem WebSocket.', true);
+                        }
+                    });
+                }, () => {
+                    updateWsUi(false, 'Erro na conexão');
+                    connectBtn.textContent = 'Conectar';
+                    connectBtn.className = 'btn-connect';
+                    connectBtn.disabled = false;
+                    wsUrlInput.disabled = false;
+                    updateResult(cloneResult, 'Erro ao conectar no WebSocket.', true);
+                });
+            } catch (error) {
+                updateWsUi(false, 'Erro ao conectar');
+                connectBtn.disabled = false;
+                wsUrlInput.disabled = false;
+                updateResult(cloneResult, `Erro ao conectar WebSocket: ${error.message}`, true);
+            }
+        }
+
+        function updateSidebarTogglePosition() {
+            const isHidden = document.body.classList.contains('sidebar-hidden');
+            if (isHidden) {
+                sidebarToggle.style.left = '16px';
+                return;
+            }
+            const sidebarRect = sidebar.getBoundingClientRect();
+            sidebarToggle.style.left = `${sidebarRect.right}px`;
+        }
+
+        btnListRepos.addEventListener('click', listRepositories);
+
+        connectBtn.addEventListener('click', () => {
+            if (stompClient && stompClient.connected) {
+                stompClient.disconnect(() => {
+                    updateWsUi(false, 'Desconectado');
+                    connectBtn.textContent = 'Conectar';
+                    connectBtn.className = 'btn-connect';
+                    wsUrlInput.disabled = false;
+                });
+            } else {
+                connectWebSocket();
+            }
+        });
+
+        wsUrlInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter' && (!stompClient || !stompClient.connected)) {
+                connectWebSocket();
+            }
+        });
+
+        sidebarToggle.addEventListener('click', () => {
+            document.body.classList.toggle('sidebar-hidden');
+            const isHidden = document.body.classList.contains('sidebar-hidden');
+            sidebarToggle.textContent = isHidden ? '>>' : '<<';
+            updateSidebarTogglePosition();
+        });
+
+        updateWsUi(false, 'Desconectado');
+        updateSidebarTogglePosition();
+        updateTable();
+        connectWebSocket();
+    </script>
+</body>
+</html>

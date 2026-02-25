@@ -195,8 +195,15 @@
             border-top: 1px solid var(--line);
         }
 
+        .github-config {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--line);
+        }
+
         .ws-config label,
-        .api-config label {
+        .api-config label,
+        .github-config label {
             display: block;
             margin-bottom: 8px;
             font-size: 13px;
@@ -209,6 +216,12 @@
             display: flex;
             gap: 8px;
             margin-bottom: 15px;
+        }
+
+        .github-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
         }
 
         .combo-config {
@@ -263,8 +276,25 @@
             font-family: 'JetBrains Mono', 'Courier New', monospace;
         }
 
+        .github-url-input {
+            width: 100%;
+            padding: 10px;
+            background: #111c26;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+        }
+
         .ws-url-input:focus,
         .api-url-input:focus {
+            outline: none;
+            border-color: var(--accent-cool);
+            box-shadow: 0 0 0 2px rgba(46, 196, 182, 0.2);
+        }
+
+        .github-url-input:focus {
             outline: none;
             border-color: var(--accent-cool);
             box-shadow: 0 0 0 2px rgba(46, 196, 182, 0.2);
@@ -295,6 +325,31 @@
 
         .btn-connect.disconnect:hover {
             transform: translateY(-1px);
+        }
+
+        .btn-github {
+            width: 100%;
+            background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+            color: #eaf2ff;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.28);
+        }
+
+        .btn-github:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-github:disabled {
+            background: #384652;
+            color: #94a3af;
+            cursor: not-allowed;
+            box-shadow: none;
         }
 
         .connection-status {
@@ -590,6 +645,20 @@
             </div>
         </div>
 
+        <div class="github-config">
+            <label for="githubRepoUrlInput">🐙 URL do Projeto no GitHub</label>
+            <div class="github-input-group">
+                <input
+                    type="text"
+                    id="githubRepoUrlInput"
+                    class="github-url-input"
+                    value="https://github.com/zsantana/spring-kafka-high-performance"
+                    placeholder="https://github.com/owner/repo"
+                >
+            </div>
+            <button class="btn-github" id="githubCloneBtn">Enviar URL para Clonar</button>
+        </div>
+
         <div class="ws-config">
             <label for="wsUrlInput">🔌 URL do WebSocket</label>
             <div class="ws-input-group">
@@ -650,6 +719,7 @@
         let selectedFiles = [];
         let stompClient = null;
         let files = [];
+        const gitCloneApiUrl = 'http://localhost:8080/api/git/clone/public';
 
         // Elementos DOM
         const uploadArea = document.getElementById('uploadArea');
@@ -665,6 +735,8 @@
         const connectBtn = document.getElementById('connectBtn');
         const apiUrlInput = document.getElementById('apiUrlInput');
         const workflowSelect = document.getElementById('workflowSelect');
+        const githubRepoUrlInput = document.getElementById('githubRepoUrlInput');
+        const githubCloneBtn = document.getElementById('githubCloneBtn');
         const sidebar = document.querySelector('.sidebar');
         const sidebarResizer = document.getElementById('sidebarResizer');
         const sidebarToggle = document.getElementById('sidebarToggle');
@@ -962,6 +1034,78 @@
                 selectedFiles = [];
                 fileInput.value = '';
                 fileInfo.style.display = 'none';
+            }
+        });
+
+        githubCloneBtn.addEventListener('click', async () => {
+            const repoUrl = (githubRepoUrlInput.value || '').trim();
+
+            if (!repoUrl) {
+                showNotification('Por favor, informe a URL do projeto no GitHub', 'error');
+                return;
+            }
+
+            githubCloneBtn.disabled = true;
+            githubCloneBtn.textContent = 'Enviando...';
+
+            const uuid = generateUUID();
+            const repoName = repoUrl.split('/').filter(Boolean).pop() || 'Repositorio GitHub';
+
+            const fileEntry = {
+                id_key_processor: uuid,
+                filename: `${repoName}.zip`,
+                timestamp_envio: Date.now(),
+                status: 'Enviado - Clone Git',
+                timestamp_retorno: null,
+                tot_token_input: null,
+                tot_token_output: null,
+                tot_final: null,
+                url_download_file: null
+            };
+
+            files.unshift(fileEntry);
+            updateTable();
+
+            try {
+                const payload = {
+                    id_key_processor: uuid,
+                    repo_url: repoUrl,
+                    token: ''
+                };
+
+                const response = await fetch(gitCloneApiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const fileIndex = files.findIndex(f => f.id_key_processor === uuid);
+                    if (fileIndex !== -1) {
+                        files[fileIndex].status = 'Recebido';
+                        updateTable();
+                    }
+                    showNotification('URL enviada para clonagem com sucesso!', 'success');
+                } else {
+                    const fileIndex = files.findIndex(f => f.id_key_processor === uuid);
+                    if (fileIndex !== -1) {
+                        files[fileIndex].status = 'Falha de processamento';
+                        updateTable();
+                    }
+                    showNotification('Falha ao enviar URL para clonagem', 'error');
+                }
+            } catch (error) {
+                const fileIndex = files.findIndex(f => f.id_key_processor === uuid);
+                if (fileIndex !== -1) {
+                    files[fileIndex].status = 'Falha de processamento';
+                    updateTable();
+                }
+                showNotification('Erro ao enviar URL para clonagem: ' + error.message, 'error');
+            } finally {
+                githubCloneBtn.disabled = false;
+                githubCloneBtn.textContent = 'Enviar URL para Clonar';
             }
         });
 

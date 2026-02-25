@@ -60,9 +60,9 @@ public class LlmProcessingService {
         try {
             // Criar mensagens
 
-            log.info("### System prompt carregado: {}", appConfig.getLlm().getSystemPrompt());
+            // log.info("### System prompt carregado: {}", appConfig.getLlm().getSystemPrompt());
             List<Message> messages = List.of(
-                new SystemMessage(appConfig.getLlm().getSystemPrompt()),
+                new SystemMessage(montarSystemPrompt()),
                 new UserMessage(userPrompt)
             );
             
@@ -144,70 +144,15 @@ public class LlmProcessingService {
         }
     }
 
-    /**
-     * Constrói o prompt do usuário com as informações do projeto.
-     */
-    private String buildUserPrompt(ProjectStructure projectStructure) {
-        try {
-            // Criar um resumo estruturado da informação
-            StringBuilder prompt = new StringBuilder();
-            prompt.append("Analise a seguinte estrutura de projeto:\n\n");
-            prompt.append("**Projeto:** ").append(projectStructure.getProjectName()).append("\n");
-            prompt.append("**ID:** ").append(projectStructure.getProjectId()).append("\n\n");
-            
-            // Estatísticas
-            if (projectStructure.getStatistics() != null) {
-                var stats = projectStructure.getStatistics();
-                prompt.append("**Estatísticas:**\n");
-                prompt.append("- Total de arquivos: ").append(stats.getTotalFiles()).append("\n");
-                prompt.append("- Total de diretórios: ").append(stats.getTotalDirectories()).append("\n");
-                prompt.append("- Tamanho total: ").append(formatSize(stats.getTotalSize())).append("\n\n");
-            }
-            
-            // Extensões de arquivo (análise de tecnologias)
-            prompt.append("**Extensões de arquivo encontradas:**\n");
-            var extensions = projectStructure.getFiles().stream()
-                .map(ProjectStructure.FileInfo::getExtension)
-                .filter(ext -> ext != null && !ext.isEmpty())
-                .distinct()
-                .toList();
-            extensions.forEach(ext -> prompt.append("- ").append(ext).append("\n"));
-            
-            prompt.append("\n**Estrutura de diretórios:**\n");
-            projectStructure.getDirectories().stream()
-                .limit(20) // Limitar para não exceder tokens
-                .forEach(dir -> prompt.append("- ").append(dir.getPath()).append("\n"));
-            
-            prompt.append("\n**Principais arquivos:**\n");
-            projectStructure.getFiles().stream()
-                .limit(30) // Limitar para não exceder tokens
-                .forEach(file -> prompt.append("- ")
-                    .append(file.getPath())
-                    .append(" (")
-                    .append(formatSize(file.getSize()))
-                    .append(")\n"));
-            
-            prompt.append("\n\nPor favor, forneça uma análise detalhada em formato JSON.");
-            
-            return prompt.toString();
-            
-        } catch (Exception e) {
-            log.error("Erro ao construir prompt: {}", e.getMessage());
-            return "Estrutura do projeto: " + projectStructure.getProjectName();
-        }
-    }
+    private String montarSystemPrompt() {
+        var systemPrompt = String.format("%s\n\n%s",
+            appConfig.getLlm().getSystemPrompt(),
+            appConfig.getLlm().getTemplateHTML());
 
-    /**
-     * Formata tamanho de arquivo para leitura humana.
-     */
-    private String formatSize(Long size) {
-        if (size == null) return "0 B";
-        
-        if (size < 1024) return size + " B";
-        if (size < 1024 * 1024) return String.format("%.2f KB", size / 1024.0);
-        if (size < 1024 * 1024 * 1024) return String.format("%.2f MB", size / (1024.0 * 1024));
-        return String.format("%.2f GB", size / (1024.0 * 1024 * 1024));
+        log.debug("### System prompt final montado: {}", systemPrompt);
+        return systemPrompt;
     }
+    
 
     /**
      * Gera ID único para o arquivo de resultado.

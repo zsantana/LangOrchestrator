@@ -19,7 +19,7 @@ spring:
       chat:
         options:
           model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
-          max-tokens: 20000
+          max-tokens: 64000
           temperature: 0.7
 
   servlet:
@@ -37,11 +37,11 @@ spring:
       max-string-length: 900000000
 
 #claude-sonnet-4-5-20250929
-app:
-  llm:
-    model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
-    max-tokens: 20000
-    temperature: 0.7
+# app:
+#   llm:
+#     model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
+#     max-tokens: 64000
+#     temperature: 0.7
     # system-prompt: |
     #   Você é um especialista em análise de código e arquitetura de software.
     #   Analise a estrutura do projeto fornecida e forneça:
@@ -60,6 +60,9 @@ app:
     file-pattern: "{projectId}_{timestamp}.json"
     create-directories: true
     pretty-print: true
+  
+git:
+  local-path: ./output/git/  
 
 logging:
   level:

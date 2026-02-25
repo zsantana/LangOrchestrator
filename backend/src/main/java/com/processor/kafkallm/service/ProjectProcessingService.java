@@ -52,28 +52,34 @@ public class ProjectProcessingService {
             extractZip(zipPath, extractDir);
 
             log.info("### Zip extraido para: {}", extractDir);
-            ProjectStructure structure = mapperService.mapProjectStructure(extractDir);
-            structure.setProjectId(fileId);
+            persistProjectData(fileId, extractDir);
 
-            // Salvar structure em JSON para debug
-            Path debugJsonPath = Paths.get(appConfig.getStorage().getBasePath(), "debug", fileId + "_structure.json");
-            log.info("### Salvando estrutura do projeto para debug em: {}", debugJsonPath);
-            if (appConfig.getStorage().isCreateDirectories()) {
-                Files.createDirectories(debugJsonPath.getParent());
-            }
-            storageService.saveJson(debugJsonPath, structure);
-
-
-            // log.info("### Estrutura do projeto mapeada: {}", structure);
-            ProcessingResult result = llmProcessingService.processWithLlm(structure);
-            String savedPath = storageService.saveHtmlResult(result);
-            log.info("### Resultado salvo em: {}", savedPath);
-
-            notificationService.notifyProcessingCompleted(result);
         } catch (Exception e) {
             log.error("### Erro ao processar zip {}: {}", fileId, e.getMessage(), e);
             notificationService.notifyProcessingError(fileId, e.getMessage());
         }
+    }
+
+    @Async
+    public void persistProjectData(String fileId, Path extractDir) throws IOException {
+        ProjectStructure structure = mapperService.mapProjectStructure(extractDir);
+        structure.setProjectId(fileId);
+
+        // Salvar structure em JSON para debug
+        Path debugJsonPath = Paths.get(appConfig.getStorage().getBasePath(), "debug", fileId + "_structure.json");
+        log.info("### Salvando estrutura do projeto para debug em: {}", debugJsonPath);
+        if (appConfig.getStorage().isCreateDirectories()) {
+            Files.createDirectories(debugJsonPath.getParent());
+        }
+        storageService.saveJson(debugJsonPath, structure);
+
+
+        // log.info("### Estrutura do projeto mapeada: {}", structure);
+        ProcessingResult result = llmProcessingService.processWithLlm(structure);
+        String savedPath = storageService.saveHtmlResult(result);
+        log.info("### Resultado salvo em: {}", savedPath);
+
+        notificationService.notifyProcessingCompleted(result);
     }
 
     private void extractZip(Path zipPath, Path targetDir) throws IOException {
